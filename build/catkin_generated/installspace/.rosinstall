@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/shane/catkin_ws/src/MobileRobotics/install/setup.sh

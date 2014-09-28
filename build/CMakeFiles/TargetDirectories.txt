@@ -1,0 +1,6 @@
+/home/shane/catkin_ws/src/MobileRobotics/build/CMakeFiles/clean_test_results.dir
+/home/shane/catkin_ws/src/MobileRobotics/build/CMakeFiles/doxygen.dir
+/home/shane/catkin_ws/src/MobileRobotics/build/gtest/CMakeFiles/gtest.dir
+/home/shane/catkin_ws/src/MobileRobotics/build/gtest/CMakeFiles/gtest_main.dir
+/home/shane/catkin_ws/src/MobileRobotics/build/CMakeFiles/run_tests.dir
+/home/shane/catkin_ws/src/MobileRobotics/build/CMakeFiles/tests.dir

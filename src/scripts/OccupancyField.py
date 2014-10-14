@@ -30,27 +30,30 @@ class OccupancyField:
                     closest_occ: the distance for each entry in the OccupancyGrid to the closest obstacle
     """
 
-    def __init__(self, map ):
+    def __init__(self, map, test = False ):
         self.scale = 1.0/500
         self.map = map  
         self.map_data = map.data        # save this for later
-        self.max_distance = min(self.map.info.width, self.map.info.height)/2
-        self.max_distance
+        self.max_distance = max(self.map.info.height, self.map.info.width)
         self.proximity_grid = []
         self.initialize_proximity_grid()
+        self.test = test
 
 
     def initialize_proximity_grid(self):
-        for x in range(self.map.info.width):
-            self.proximity_grid.append([])
-        for x in range(self.map.info.width):
-            for y in range(self.map.info.height):
-                
-                self.proximity_grid[x].append(int(self.calc_closest_obstacle_distance(x, y)))
+        self.proximity_grid = [[-1 for _ in range(self.map.info.height)] for _ in range(self.map.info.width)] 
+        
+        # for x in range(self.map.info.width):
+        #     self.proximity_grid.append([])
+        # for x in range(self.map.info.width):
+        #     print x
+        #     for y in range(self.map.info.height):
+        #         dist = int(self.calc_closest_obstacle_distance(x, y))
+        #         self.proximity_grid[x].append(dist)
+        #         if dist > self.max_distance:
+        #             self.max_distance = dist
 
-        for x in self.proximity_grid:
-            print x
-
+       
     def calc_closest_obstacle_distance(self, x, y):
         if self.map_data[x][y] is 1:
             return 0
@@ -73,9 +76,10 @@ class OccupancyField:
                 for ydel in range(ymin, ymax):
                     if self.map_data[x + xdel][y + ydel] is 1:
                         objects.append({"x": x + xdel, "y": y + ydel} )
-                        print "x" + str(x) + " y" + str(y)
-                        print xdel, ydel
-                        print ((xdel*xdel) + (ydel*ydel))
+                        # if self.test:   
+                        #     print "x" + str(x) + " y" + str(y)
+                        #     print xdel, ydel
+                        #     print ((xdel*xdel) + (ydel*ydel))
                         pt_dist = math.sqrt((xdel*xdel + ydel*ydel))
                         if pt_dist < closet_point:
                             closet_point = pt_dist
@@ -101,4 +105,6 @@ class OccupancyField:
     def get_closest_obstacle_distance(self,x,y):
         """ Compute the closest obstacle to the specified (x,y) coordinate in the map.  If the (x,y) coordinate
             is out of the map boundaries, nan will be returned. """
+        if self.proximity_grid[x][y] is -1:
+            self.proximity_grid[x][y] = self.calc_closest_obstacle_distance(x, y)
         return self.proximity_grid[x][y]

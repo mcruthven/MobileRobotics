@@ -2,6 +2,11 @@ import numpy as np
 from copy import deepcopy
 import random
 from numpy.random import random_sample
+from OccupancyField import OccupancyField
+import math
+import random
+
+from nav_msgs.msg import OccupancyGrid
 
 import matplotlib.pyplot as plt
 
@@ -27,6 +32,43 @@ class ParticleFilter(object):
     self.lin_spread = .05
     self.ang_spread = 1
     self.pt = pt if pt else (5,5,5)
+
+    self.variance = 10
+    self.gauss_constant = math.sqrt(2*math.pi)
+    self.expected_value = 0 
+
+    map = OccupancyGrid()
+    map.header.frame_id = '/odom'
+    # map.info.map_load_time = rospy.Time.now()
+    map.info.resolution = .1 # The map resolution [m/cell]
+    map.info.width = 1000
+    map.info.height = 1000
+
+    map.data = [[0 for _ in range(map.info.height)] for _ in range(map.info.width)]
+
+    # for row in range(map.info.height):
+    #     for col in range(map.info.width):
+    #         print str(col) + str(row)
+
+    #         map.data[col] = 0
+    map.data[40][50]=1
+    map.data[120][100] = 1
+    map.data[12][110] = 1
+    # map.data[13][10] = 1
+    # map.data[13][11] = 1
+    # map.data[11][10] = 1
+
+    for row in range(map.info.height):
+        map.data[0][row] = 1
+        map.data[map.info.width-1][row] = 1
+    for col in range(map.info.width):
+        map.data[col][0] = 1
+        map.data[col][map.info.height -1] = 1
+    #https://github.com/z2daj/rbe3002/blob/master/scripts/lab3.py
+
+    print "start"
+    self.occupancy_field = OccupancyField(map)
+    
 
   def update_particles_with_odom(self, delta=None):
 
@@ -109,6 +151,30 @@ class ParticleFilter(object):
     samples = [deepcopy(choices[ind]) for ind in inds]
     return samples
 
+  def update_particles_with_laser(self, msg):
+    """ Updates the particle weights in response to the scan contained in the msg """
+    for particle in self.particle_cloud:
+      # print particle.x
+      # print particle.y
+      closest_particle_object_distance = self.occupancy_field.get_closest_obstacle_distance(particle.x, particle.y) 
+      closest_actual_object_distance = msg[0] 
+      for i in range(1, 360):
+        #readd .range 3 spotd 
+        if msg[i] < closest_actual_object_distance:
+          closest_actual_object_distance = msg[i]
+      print "actual"
+      print closest_actual_object_distance
+      print "particle"
+      print closest_particle_object_distance
+      print closest_particle_object_distance-closest_actual_object_distance
+      print  self.gauss_particle_probability(closest_particle_object_distance-closest_actual_object_distance)
+
+      particle.w = self.gauss_particle_probability(closest_particle_object_distance-closest_actual_object_distance)
+
+  def gauss_particle_probability(self, difference):
+    return (1/(self.variance*self.gauss_constant))*math.exp(-.5*((difference - self.expected_value)/self.variance)**2)
+    
+
 def plot(q):
   xs = []
   ys = []
@@ -123,10 +189,31 @@ def plot(q):
 
 
 q = ParticleFilter()
+
 q.initialize_particle_cloud()
+
 plot(q)
 q.update_particles_with_odom()
 plot(q)
+i=1
+print "before"
+for particle in q.particle_cloud:
+  print i
+  i+=1
+  print particle.w
+msg = []
+for i in range(360):
+  msg.append(random.uniform(380,1000))
+print msg
+
+q.update_particles_with_laser(msg)
+
+i=1
+for particle in q.particle_cloud:
+  print i
+  i+=1
+  print particle.w
+print "after"
 q.resample_particles()
 q.normalize_particles()
 plt.figure()

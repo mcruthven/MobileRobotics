@@ -74,7 +74,8 @@ class ParticleFilter:
         self.pose_listener = rospy.Subscriber("initialpose", PoseWithCovarianceStamped, self.update_initial_pose)
         # publish the current particle cloud.  This enables viewing particles in rviz.
         self.particle_pub = rospy.Publisher("particlecloud", PoseArray)
-
+        self.vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        
         # laser_subscriber listens for data from the lidar
         self.laser_subscriber = rospy.Subscriber(self.scan_topic, LaserScan, self.scan_received)
 
@@ -85,6 +86,12 @@ class ParticleFilter:
         self.particle_cloud = []
 
         self.current_odom_xy_theta = []
+
+
+        #Set up constants for Guassian Probability
+        self.variance = .001
+        self.gauss_constant = math.sqrt(2*math.pi)
+        self.expected_value = 0 
 
         # request the map from the map server, the map should be of type nav_msgs/OccupancyGrid
         # TODO: fill in the appropriate service call here.  The resultant map should be assigned be passed
@@ -101,8 +108,8 @@ class ParticleFilter:
         map.header.frame_id = '/odom'
         map.info.map_load_time = rospy.Time.now()
         map.info.resolution = .1 # The map resolution [m/cell]
-        map.info.width = 24
-        map.info.height = 24
+        map.info.width = 72
+        map.info.height = 71
         
         map.data = [[0 for _ in range(map.info.height)] for _ in range(map.info.width)] 
         # for row in range(map.info.height):
@@ -110,12 +117,12 @@ class ParticleFilter:
         #         print str(col) + str(row)
 
         #         map.data[col] = 0
-        map.data[4][5]=1
-        map.data[12][10] = 1
-        map.data[12][11] = 1
-        map.data[13][10] = 1
-        map.data[13][11] = 1
-        map.data[11][10] = 1
+        # map.data[4][5]=1
+        # map.data[12][10] = 1
+        # map.data[12][11] = 1
+        # map.data[13][10] = 1
+        # map.data[13][11] = 1
+        # map.data[11][10] = 1
         
         for row in range(map.info.height):
             map.data[0][row] = 1
@@ -133,8 +140,18 @@ class ParticleFilter:
         print self.occupancy_field.get_closest_obstacle_distance(3,3)
         print self.occupancy_field.get_closest_obstacle_distance(4,3)
         print self.occupancy_field.get_closest_obstacle_distance(3,4)
-
+        print "GUASS"
+        print ".01"
+        print self.gauss_particle_probability(.01)
+        print ".001"
+        print self.gauss_particle_probability(.001)
+        print ".0001"
+        print self.gauss_particle_probability(.0001)
+        print "0"
+        print self.gauss_particle_probability(0)
+        
         self.initialized = True
+
 
     def update_robot_pose(self):
         """ Update the estimate of the robot's pose given the updated particles.
@@ -192,15 +209,18 @@ class ParticleFilter:
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg """
         for particle in self.particle_cloud:
-            closest_particle_object_distance = get_closest_obstacle_distance(particle.x, particle.y) 
+            closest_particle_object_distance = self.occupancy_field.get_closest_obstacle_distance(particle.x, particle.y) 
             closest_actual_object_distance = msg.range[0] 
             for i in range(1, 360):
                 if msg.range[i] < closest_actual_object_distance:
                     closest_actual_object_distance = msg.range[i]
-
-            new_weight = (self.occupancy_field.max_distance - (abs(closest_particle_object_distance-closest_actual_object_distance))^2)/self.occupancy_field.max_distance
-            particle.w = (new_weight+particle.w)/2
             
+            particle.w = self.gauss_particle_probability(closest_particle_object_distance-closest_actual_object_distance)
+            # particle.unnormalized_w = (g_probability+particle.unnormalized_w)/2
+
+    def gauss_particle_probability(self, difference):
+        return (1/(self.variance*self.gauss_constant))*math.exp(-.5*((difference - self.expected_value)/self.variance)**2)
+   
     @staticmethod
     def angle_normalize(z):
         """ convenience function to map an angle to the range [-pi,pi] """

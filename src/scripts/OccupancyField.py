@@ -31,7 +31,7 @@ class OccupancyField:
     """
 
     def __init__(self, map, test = False ):
-        self.scale = 1.0/500
+        self.scale = .025
         self.map = map  
         self.map_data = map.data        # save this for later
         self.max_distance = max(self.map.info.height, self.map.info.width)
@@ -49,9 +49,11 @@ class OccupancyField:
         #     print x
         #     for y in range(self.map.info.height):
         #         dist = int(self.calc_closest_obstacle_distance(x, y))
-        #         self.proximity_grid[x].append(dist)
+        #         self.proximity_grid[x][y] =dist
+
         #         if dist > self.max_distance:
         #             self.max_distance = dist
+        #     print self.proximity_grid[x]
 
        
     def calc_closest_obstacle_distance(self, x, y):
@@ -77,9 +79,9 @@ class OccupancyField:
                     if self.map_data[x + xdel][y + ydel] is 1:
                         objects.append({"x": x + xdel, "y": y + ydel} )
                         # if self.test:   
-                        #     print "x" + str(x) + " y" + str(y)
-                        #     print xdel, ydel
-                        #     print ((xdel*xdel) + (ydel*ydel))
+                        # print "x" + str(x) + " y" + str(y)
+                        # print xdel, ydel
+                        # print ((xdel*xdel) + (ydel*ydel))
                         pt_dist = math.sqrt((xdel*xdel + ydel*ydel))
                         if pt_dist < closet_point:
                             closet_point = pt_dist
@@ -105,6 +107,8 @@ class OccupancyField:
     def get_closest_obstacle_distance(self,x,y):
         """ Compute the closest obstacle to the specified (x,y) coordinate in the map.  If the (x,y) coordinate
             is out of the map boundaries, nan will be returned. """
+        x = int(round(x/self.scale))
+        y = int(round(y/self.scale))
         if self.proximity_grid[x][y] is -1:
             self.proximity_grid[x][y] = self.calc_closest_obstacle_distance(x, y)
         return self.proximity_grid[x][y]

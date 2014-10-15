@@ -37,6 +37,7 @@ class Particle:
 			theta: the yaw of the hypothesis relative to the map frame
 			w: the particle weight (the class does not ensure that particle weights are normalized """ 
 		self.w = w
+		self.unnormalized_w = w
 		self.theta = theta
 		self.x = x
 		self.y = y

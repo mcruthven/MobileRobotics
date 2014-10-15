@@ -65,8 +65,6 @@ class ParticleFilter:
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
         # TODO: define additional constants if needed
-        self.ang_spread = 10
-        self.lin_spread = .1
 
         # Setup pubs and subs
 
@@ -75,7 +73,7 @@ class ParticleFilter:
         # publish the current particle cloud.  This enables viewing particles in rviz.
         self.particle_pub = rospy.Publisher("particlecloud", PoseArray)
         self.vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        
+
         # laser_subscriber listens for data from the lidar
         self.laser_subscriber = rospy.Subscriber(self.scan_topic, LaserScan, self.scan_received)
 
@@ -86,7 +84,6 @@ class ParticleFilter:
         self.particle_cloud = []
 
         self.current_odom_xy_theta = []
-
 
         #Set up constants for Guassian Probability
         self.variance = .001
@@ -152,28 +149,30 @@ class ParticleFilter:
         
         self.initialized = True
 
-
     def update_robot_pose(self):
         """ Update the estimate of the robot's pose given the updated particles.
             There are two logical methods for this:
                 (1): compute the mean pose (level 2)
                 (2): compute the most likely pose (i.e. the mode of the distribution) (level 1)
         """
+        # TODO: assign the lastest pose into self.robot_pose as a geometry_msgs.Pose object
+
         # first make sure that the particle weights are normalized
         self.normalize_particles()
 
-        # TODO: assign the lastest pose into self.robot_pose as a geometry_msgs.Pose object
-        # just to get started we will fix the robot's pose to always be at the origin
-        self.robot_pose = Pose()
+                total_x = 0.0
+                total_y = 0.0
+                total_theta = 0.0
+                
+        for particle in self.particle_cloud: 
+               total_x += particle.x * particle.w
+                        total_y += particle.y * particle.w
+                        total_theta += particle.theta * particle.w
+
+                self.current_odom_xy_theta = (total_x, total_y, total_theta)
 
     def update_particles_with_odom(self, msg):
-        """ Update the particles using the newly given odometry pose.
-            The function computes the value delta which is a tuple (x,y,theta)
-            that indicates the change in position and angle between the odometry
-            when the particles were last updated and the current odometry.
-
-            msg: this is not really needed to implement this, but is here just in case.
-        """
+        """ Implement a simple version of this (Level 1) or a more complex one (Level 2) """
         new_odom_xy_theta = TransformHelpers.convert_pose_to_xy_and_theta(self.odom_pose.pose)
         # compute the change in x,y,theta since our last update
         if self.current_odom_xy_theta:
@@ -186,6 +185,15 @@ class ParticleFilter:
 
         # TODO: modify particles using delta
         # For added difficulty: Implement sample_motion_odometry (Prob Rob p 136)
+                x_sd = .0005 * 10
+                y_sd = .0005 * 10
+                theta_sd = .0005 * 10
+
+        for particle in self.particle_cloud:
+            particle.x += np.random.normal(delta[0], x_sd)
+                        particle.y += np.random.normal(delta[1], y_sd)
+                        particle.theta += np.random.normal(delta[2], theta_sd)
+
 
     def map_calc_range(self,x,y,theta):
         """ Difficulty Level 3: implement a ray tracing likelihood model... Let me know if you are interested """
@@ -193,19 +201,12 @@ class ParticleFilter:
         pass
 
     def resample_particles(self):
-        """ Resample the particles according to the new particle weights.
-            The weights stored with each particle should define the probability that a particular
-            particle is selected in the resampling step.  You may want to make use of the given helper
-            function draw_random_sample.
-        """
+        """ Resample the particles according to the new particle weights """
         # make sure the distribution is normalized
         self.normalize_particles()
         # TODO: fill out the rest of the implementation
-        weights = [particle.w for particle in self.particle_cloud]
-        self.particle_cloud = self.draw_random_sample(
-            self.particle_cloud, weights, self.n_particles) 
 
-
+    
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg """
         for particle in self.particle_cloud:
@@ -221,6 +222,7 @@ class ParticleFilter:
     def gauss_particle_probability(self, difference):
         return (1/(self.variance*self.gauss_constant))*math.exp(-.5*((difference - self.expected_value)/self.variance)**2)
    
+
     @staticmethod
     def angle_normalize(z):
         """ convenience function to map an angle to the range [-pi,pi] """
@@ -256,20 +258,6 @@ class ParticleFilter:
         bins = np.add.accumulate(probabilities)
         return values[np.digitize(random_sample(size), bins)]
 
-    @staticmethod
-    def draw_random_sample(choices, probabilities, n):
-        """ Return a random sample of n elements from the set choices with the specified probabilities
-                    choices: the values to sample from represented as a list
-            probabilities: the probability of selecting each index represented as a list
-            n: the number of samples
-        """
-        values = np.array(range(len(choices)))
-        probs = np.array(probabilities)
-        bins = np.add.accumulate(probs)
-        inds = values[np.digitize(random_sample(n), bins)]
-        samples = [deepcopy(choices[ind]) for ind in inds]
-        return samples
-        
     def update_initial_pose(self, msg):
         """ Callback function to handle re-initializing the particle filter based on a pose estimate.
             These pose estimates could be generated by another ROS Node or could come from the rviz GUI """
@@ -284,23 +272,15 @@ class ParticleFilter:
                       particle cloud around.  If this input is ommitted, the odometry will be used """
         if xy_theta == None:
             xy_theta = TransformHelpers.convert_pose_to_xy_and_theta(self.odom_pose.pose)
-        # TODO(mary): create particles
-        x_vals = np.random.normal(xy_theta[0], self.lin_spread, self.n_particles)
-        y_vals = np.random.normal(xy_theta[1], self.lin_spread, self.n_particles)
-        t_vals = np.random.normal(xy_theta[2], self.ang_spread, self.n_particles)
-        self.particle_cloud = [Particle(x_vals[i], y_vals[i], t_vals[i], 1) for i in xrange(self.n_particles)]
+        self.particle_cloud = []
+        # TODO create particles
 
         self.normalize_particles()
         self.update_robot_pose()
-    
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        # TODO(mary): implement this
-        total_weight = sum([particle.w for particle in self.particle_cloud]) * 1.0
-        for particle in self.particle_cloud:
-            particle.w /= total_weight 
-                
+        # TODO: implement this
 
     def publish_particles(self, msg):
         particles_conv = []
@@ -349,8 +329,8 @@ class ParticleFilter:
             # we have moved far enough to do an update!
             self.update_particles_with_odom(msg)    # update based on odometry
             self.update_particles_with_laser(msg)   # update based on laser scan
-            self.update_robot_pose()                # update robot's pose
             self.resample_particles()               # resample particles to focus on areas of high density
+            self.update_robot_pose()                # update robot's pose
             self.fix_map_to_odom_transform(msg)     # update map to odom transform now that we have new particles
         # publish particles (so things like rviz can see them)
         self.publish_particles(msg)
@@ -369,11 +349,3 @@ class ParticleFilter:
             return
         self.tf_broadcaster.sendTransform(self.translation, self.rotation, rospy.get_rostime(), self.odom_frame, self.map_frame)
 
-if __name__ == '__main__':
-    n = ParticleFilter()
-    r = rospy.Rate(5)
-
-    while not(rospy.is_shutdown()):
-        # in the main loop all we do is continuously broadcast the latest map to odom transform
-        n.broadcast_last_transform()
-        r.sleep()

@@ -109,6 +109,7 @@ class OccupancyField:
             is out of the map boundaries, nan will be returned. """
         x = int(round(x/self.scale))
         y = int(round(y/self.scale))
+        print x, y
         if self.proximity_grid[x][y] is -1:
             self.proximity_grid[x][y] = self.calc_closest_obstacle_distance(x, y)
         return self.proximity_grid[x][y]

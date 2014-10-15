@@ -106,10 +106,11 @@ class ParticleFilter:
                 total_x = 0.0
                 total_y = 0.0
                 total_theta = 0.0
-                for i in range(len(self.particle_cloud)):
-                        total_x += self.particle_cloud[i].x * self.particle_cloud[i].w
-                        total_y += self.particle_cloud[i].y * self.particle_cloud[i].w
-                        total_theta += self.particle_cloud[i].theta * self.particle_cloud[i].w
+                
+		for particle in self.particle_cloud: 
+		       total_x += particle.x * particle.w
+                        total_y += particle.y * particle.w
+                        total_theta += particle.theta * particle.w
 
                 self.current_odom_xy_theta = (total_x, total_y, total_theta)
 
@@ -131,10 +132,10 @@ class ParticleFilter:
                 y_sd = .0005 * 10
                 theta_sd = .0005 * 10
 
-                for i in range(0,len(self.particle_cloud)):
-                        self.particle_cloud[i].x += np.random.normal(delta[0], x_sd)
-                        self.particle_cloud[i].y += np.random.normal(delta[1], y_sd)
-                        self.particle_cloud[i].theta += np.random.normal(delta[2], theta_sd)
+		for particle in self.particle_cloud:
+			particle.x += np.random.normal(delta[0], x_sd)
+                        particle.y += np.random.normal(delta[1], y_sd)
+                        particle.theta += np.random.normal(delta[2], theta_sd)
 
 
 	def map_calc_range(self,x,y,theta):

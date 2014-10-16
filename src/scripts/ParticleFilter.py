@@ -148,17 +148,19 @@ class ParticleFilter:
 
         # first make sure that the particle weights are normalized
         self.normalize_particles()
-        self.robot_pose
         total_x = 0.0
         total_y = 0.0
         total_theta = 0.0
 
+	#calculates mean position of particle cloud according to particle weight
+	#particles are normalized so sum of multiples will return mean
         for particle in self.particle_cloud: 
             total_x += particle.x * particle.w
             total_y += particle.y * particle.w
             total_theta += particle.theta * particle.w
         total_theta = math.cos(total_theta/2)
-        
+
+        #set the robot pose to new position
         self.robot_pose =  Pose(position=Point(x= +total_x, y=total_y,z=0), orientation=Quaternion(x=0, y=0, z=0, w=total_theta))
 
         if self.test:
@@ -181,14 +183,18 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
+	#function moves the particle cloud according to the odometry data
+	#particle noise is added using gaussian distribution
+	#standard deviation of gaussian dist was experimentally measured
+
         x_sd = .001
         y_sd = .001
         theta_sd = .1
 
         for particle in self.particle_cloud:
-            particle.x += np.random.normal(delta[0], x_sd)
-            particle.y += np.random.normal(delta[1], y_sd)
-            particle.theta += np.random.normal(delta[2], theta_sd)
+            particle.x += np.random.normal(particle.x + delta[0], x_sd)
+            particle.y += np.random.normal(particle.y + delta[1], y_sd)
+            particle.theta += np.random.normal(particle.theta + delta[2], theta_sd)
 
 
     def map_calc_range(self,x,y,theta):
@@ -203,10 +209,14 @@ class ParticleFilter:
             print "Resampling Particles"
         
         # TODO: fill out the rest of the implementation
+
+	#draw a random sample of particles from particle cloud
+	#then normalize the remaining particles
         weights = [particle.w for particle in self.particle_cloud]
         self.particle_cloud = self.draw_random_sample(
             self.particle_cloud, weights, self.n_particles) 
         self.normalize_particles()
+
         print "SAMPLING"
         print len(self.particle_cloud)
         print self.particle_cloud 
@@ -315,7 +325,7 @@ class ParticleFilter:
         if self.test:
             print "Initializing Cloud"
             
-        if xy_theta == None:
+	if xy_theta == None:
             xy_theta = TransformHelpers.convert_pose_to_xy_and_theta(self.robot_pose)
             print self.robot_pose
             print xy_theta
@@ -323,6 +333,8 @@ class ParticleFilter:
         self.particle_cloud = []
         # TODO create particles
 
+	#create a normal distribution of particles around starting position
+	#then normalize and update pose accordingly
         x_vals = np.random.normal(xy_theta[0], self.lin_spread, self.n_particles)
         y_vals = np.random.normal(xy_theta[1], self.lin_spread, self.n_particles)
         t_vals = np.random.normal(xy_theta[2], self.ang_spread, self.n_particles)

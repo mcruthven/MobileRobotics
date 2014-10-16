@@ -31,7 +31,7 @@ class OccupancyField:
     """
 
     def __init__(self, map, test = False ):
-        self.scale = .025
+        self.scale = .00625
         self.map = map  
         self.map_data = map.data        # save this for later
         self.max_distance = max(self.map.info.height, self.map.info.width)
@@ -58,23 +58,36 @@ class OccupancyField:
        
     def calc_closest_obstacle_distance(self, x, y):
         if self.map_data[x][y] is 1:
-            return 0
+            return {"distance": 0, "theta": 0,}
         distance = 1    
         object_found = False
+        closet_point = {}
         while not object_found:
-            if (self.map_data[x+distance][y] is 1) or (self.map_data[x-distance][y] is 1) or (self.map_data[x][y + distance] is 1) or (self.map_data[x][y - distance] is 1):
+            if (self.map_data[x+distance][y] is 1): 
+                closet_point["theta"] = 0
                 object_found = True
+            elif (self.map_data[x-distance][y] is 1):
+                object_found = True
+                closet_point["theta"] = math.pi
+            elif (self.map_data[x][y + distance] is 1):
+                object_found = True
+                closet_point["theta"] = .5*math.pi
+            elif (self.map_data[x][y - distance] is 1):
+                object_found = True
+                closet_point["theta"] = 1.5* math.pi
             else:
                 distance +=1
-        return self.calc_obstacle_within_limit(x, y, distance)
+        closet_point["distance"] = distance
+        
+        return self.calc_obstacle_within_limit(x, y, closet_point)
                   
 
-    def calc_obstacle_within_limit (self, x, y, distance):
+    def calc_obstacle_within_limit (self, x, y, closet_point):
         objects = []
-        closet_point = distance
-        xmin, ymin, xmax, ymax = self.check_field_edges(x, y, distance)
+        
+        xmin, ymin, xmax, ymax = self.check_field_edges(x, y, closet_point["distance"])
         for xdel in range(xmin, xmax):
-            if abs(xdel) < closet_point: 
+            if abs(xdel) < closet_point["distance"]: 
                 for ydel in range(ymin, ymax):
                     if self.map_data[x + xdel][y + ydel] is 1:
                         objects.append({"x": x + xdel, "y": y + ydel} )
@@ -84,8 +97,8 @@ class OccupancyField:
                         # print ((xdel*xdel) + (ydel*ydel))
                         pt_dist = math.sqrt((xdel*xdel + ydel*ydel))
                         if pt_dist < closet_point:
-                            closet_point = pt_dist
-
+                            closet_point["distance"] = pt_dist
+                            closet_point["theta"]= math.atan(float(ydel)/max(float(xdel),.000001))
         return closet_point
 
 
@@ -107,9 +120,13 @@ class OccupancyField:
     def get_closest_obstacle_distance(self,x,y):
         """ Compute the closest obstacle to the specified (x,y) coordinate in the map.  If the (x,y) coordinate
             is out of the map boundaries, nan will be returned. """
+        # print x, y
         x = int(round(x/self.scale))
         y = int(round(y/self.scale))
-        print x, y
+        # print "xy"
+        # print x, y
         if self.proximity_grid[x][y] is -1:
             self.proximity_grid[x][y] = self.calc_closest_obstacle_distance(x, y)
-        return self.proximity_grid[x][y]
+        # print "RETURNING"
+        # print self.proximity_grid[x][y]
+        return (self.proximity_grid[x][y]["distance"]*self.scale, self.proximity_grid[x][y]["theta"])

@@ -138,9 +138,12 @@ class ParticleFilter:
 
 		self.laser_max_distance = 2.0	# maximum penalty to assess in the likelihood field model
 
+		self.robot_pose
 		# TODO: define additional constants if needed
 
 		# Setup pubs and subs
+
+
 
 		# pose_listener responds to selection of a new approximate robot location (for instance using rviz)
 		self.pose_listener = rospy.Subscriber("initialpose", PoseWithCovarianceStamped, self.update_initial_pose)

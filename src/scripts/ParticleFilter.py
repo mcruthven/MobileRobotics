@@ -102,19 +102,9 @@ class ParticleFilter:
         self.expected_value = 0 
 
         # request the map from the map server, the map should be of type nav_msgs/OccupancyGrid
-        # TODO: fill in the appropriate service call here.  The resultant map should be assigned be passed
-        #       into the init method for OccupancyField
-
-        # for now we have commented out the occupancy field initialization until you can successfully fetch the map
-        #self.occupancy_field = OccupancyField(map)
-
-        # request the map from the map server, the map should be of type nav_msgs/OccupancyGrid
-        # TODO: fill in the appropriate service call here.  The resultant map should be assigned be passed
-
-        #       into the init method for OccupancyField
 
         # We make a fake approximate map of an empty 2 by 2 square for testing to keep it simple.
-        # If this worked better, we'd expand, but we never got it to work better.
+        # If this worked better, we'd expand to a real OccupancyGrid, but we never got it to work better.
         map = OccupancyGrid()
         map.header.frame_id = '/odom'
         map.info.map_load_time = rospy.Time.now()
@@ -152,8 +142,8 @@ class ParticleFilter:
         total_y = 0.0
         total_theta = 0.0
 
-	#calculates mean position of particle cloud according to particle weight
-	#particles are normalized so sum of multiples will return mean
+    	#calculates mean position of particle cloud according to particle weight
+	    #particles are normalized so sum of multiples will return mean
         for particle in self.particle_cloud: 
             total_x += particle.x * particle.w
             total_y += particle.y * particle.w
@@ -183,9 +173,9 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-	#function moves the particle cloud according to the odometry data
-	#particle noise is added using gaussian distribution
-	#standard deviation of gaussian dist was experimentally measured
+    	#function moves the particle cloud according to the odometry data
+    	#particle noise is added using gaussian distribution
+    	#standard deviation of gaussian dist was experimentally measured
 
         x_sd = .001
         y_sd = .001
@@ -208,19 +198,12 @@ class ParticleFilter:
         if self.test:
             print "Resampling Particles"
         
-        # TODO: fill out the rest of the implementation
-
-	#draw a random sample of particles from particle cloud
-	#then normalize the remaining particles
+	    #draw a random sample of particles from particle cloud
+	    #then normalize the remaining particles
         weights = [particle.w for particle in self.particle_cloud]
         self.particle_cloud = self.draw_random_sample(
             self.particle_cloud, weights, self.n_particles) 
-        self.normalize_particles()
-
-        print "SAMPLING"
-        print len(self.particle_cloud)
-        print self.particle_cloud 
-        
+        self.normalize_particles()        
 
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg """
@@ -229,6 +212,7 @@ class ParticleFilter:
         
         
         for particle in self.particle_cloud:
+            #for each particle, get closest object distance and theta
             closest_particle_object_distance, closest_particle_object_theta = self.occupancy_field.get_closest_obstacle_distance(particle.x, particle.y) 
             
             closest_actual_object_distance = 1000 
@@ -237,22 +221,12 @@ class ParticleFilter:
                     closest_actual_object_distance = msg.ranges[i]
                     closest_actual_object_theta = (i/360.0)*2*math.pi
             
-
-            print closest_particle_object_distance-closest_actual_object_distance
-            print "actual theta"
-            print closest_actual_object_theta
-            print "part theta"
-            print closest_particle_object_theta
-
-            if self.gauss_particle_probability(closest_particle_object_distance-closest_actual_object_distance) > 0:
-                print particle.x,particle.y
+            #update the particle's weight and theta 
             particle.w = self.gauss_particle_probability(closest_particle_object_distance-closest_actual_object_distance)
-            
             particle.theta =  closest_actual_object_theta - closest_particle_object_theta
-            print particle.w
-            # particle.unnormalized_w = (g_probability+particle.unnormalized_w)/2
-        # raw_input()
+    
     def gauss_particle_probability(self, difference):
+        """ Takes the difference between the actual closest object and the closest object to the particle guess and, based on the variance, returns the weight """
         return (1/(self.variance*self.gauss_constant))*math.exp(-.5*((difference - self.expected_value)/self.variance)**2)
    
 
@@ -348,11 +322,7 @@ class ParticleFilter:
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        # TODO(mary): implement this
         total_weight = sum([particle.w for particle in self.particle_cloud]) * 1.0
-        print "average weight"
-        print total_weight/self.n_particles
-
         for particle in self.particle_cloud:
           particle.w /= total_weight 
       
@@ -389,13 +359,7 @@ class ParticleFilter:
         p = PoseStamped(header=Header(stamp=msg.header.stamp,frame_id=self.base_frame), pose=Pose())
         self.odom_pose = self.tf_listener.transformPose(self.odom_frame, p)
         # store the the odometry pose in a more convenient format (x,y,theta)
-        # print "TEST"
         new_odom_xy_theta = TransformHelpers.convert_pose_to_xy_and_theta(self.odom_pose.pose)
-        # print new_odom_xy_theta
-        # self.odom_pose.pose.position.x +=1
-        # new_odom_xy_theta = TransformHelpers.convert_pose_to_xy_and_theta( self.robot_pose)
-        # print new_odom_xy_theta
-        # print "DONE"
         
 
         if not(self.particle_cloud):
@@ -418,18 +382,7 @@ class ParticleFilter:
             self.update_robot_pose()                # update robot's pose
             self.resample_particles()               # resample particles to focus on areas of high density
             self.fix_map_to_odom_transform(msg)     # update map to odom transform now that we have new particles
-            # print self.particles
         # publish particles (so things like rviz can see them)
-        # print new_odom_xy_theta
-        # print new_odom_xy_theta[0] - self.current_odom_xy_theta[0]
-        # print new_odom_xy_theta[1] - self.current_odom_xy_theta[1]
-        # print new_odom_xy_theta[2] - self.current_odom_xy_theta[2]
-        # print "pose"
-        # print self.robot_pose
-        # # print "publish"
-        # if self.test or self.scan_count % 1 is 0:
-        #     print "updated pose:"
-        #     print self.robot_pose
         self.publish_particles(msg)
 
     def fix_map_to_odom_transform(self, msg):
